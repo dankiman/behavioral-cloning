@@ -4,6 +4,10 @@
 The goal of this project was to teach a car to drive autonomously in a simulator by using recorded image sequences along with steering angle labels as input and train a convolutional neural network to output correct steering angles based on new streaming camera images.
 
 ## Collecting Data
+| Left          | Center        | Right  |
+| ------------- |:-------------:| ------|
+|![Left] (https://github.com/jimwinquist/behavioral-cloning/blob/master/images/left_raw.jpg) | ![Center] (https://github.com/jimwinquist/behavioral-cloning/blob/master/images/center_raw.jpg) | ![Right] (https://github.com/jimwinquist/behavioral-cloning/blob/master/images/right_raw.jpg)
+
 To collect training data I began by driving several smooth laps around the track in the simulator at a consistent speed around 30mph. I drove 3 laps of the training track in one direction and then drove 3 laps of the track in the reverse direction, trying to keep in the center of the lane as much as possible. The car in the simulator is mounted with 3 forward facing cameras on the center left and right of the car and I used the images from all three to train with. The initial training data set consisted of approximately 40,000 images including the center, left, and right camera images for each frame.
 
 After training and testing in the simulator, this initial data set wasn't enough data to accurately predict certain sharp turns, so I found it necessary to collect additional training examples of spots that the model had trouble predicting. I recorded additional data in the problem sections of the track by slowing the car down to approximately 5mph to ensure that I would gather a larger number of images in these sections to include in the training set. This was an iterative process that required gathering data, training the model, testing in the simulator and then collecting more data to augment the training set.
