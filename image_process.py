@@ -4,28 +4,46 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 
 def read_image(image_path):
+    '''
+    Read in an RGB image from
+    :param image_path: The path to the image file
+    :return: RGB image array
+    '''
     if not os.path.exists(image_path):
         print('Path does not exist: {0}'.format(image_path))
     return mpimg.imread(image_path)
 
-def convert_image(image):
-    return cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
+def resize_image(image):
+    '''
+    Resize and crop an image to specific dimensions.
 
-def resize_crop_image(image):
-    # Resize and Crop image to (25, 80, 3)
-    crop = image.copy()
-    crop = crop[40:140,:]
-    dim = (80, int(crop.shape[0] * (80.0 / crop.shape[1])))
-    return cv2.resize(crop, dim, interpolation=cv2.INTER_AREA)
+    :param image: Image array
+    :return: resized image
+    '''
+    # Resize and Crop image to (16, 32, 3)
+    dim = (32, int(image.shape[0] * (32.0 / image.shape[1])))
+    return cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
 
 def stream_process(image):
-    image = convert_image(image)
-    image = resize_crop_image(image)
+    '''
+    Process streaming images
+
+    :param image: Image array
+    :return: processed image
+    '''
+    image = resize_image(image)
     return image
 
 def preprocess(image_path):
+    '''
+    Process image for training data
+
+    :param image_path: Path to image file
+    :return: processed image
+    '''
     image_path = image_path.strip()
+    # For relative pathing with Udacity data
+    image_path = os.path.join('/Users/JimWinquist/Desktop/data', image_path)
     image = read_image(image_path)
-    image = convert_image(image)
-    image = resize_crop_image(image)
+    image = resize_image(image)
     return image
