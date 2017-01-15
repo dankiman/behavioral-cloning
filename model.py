@@ -16,8 +16,8 @@ from keras.layers import BatchNormalization
 from keras.optimizers import Adam
 print('Modules imported.')
 
-DRIVING_LOG = "/Users/JimWinquist/Desktop/cloning_data_clean/driving_log.csv"
-#DRIVING_LOG = "/Users/JimWinquist/Desktop/data/driving_log.csv"
+#DRIVING_LOG = "/Users/JimWinquist/Desktop/cloning_data_clean/driving_log.csv"
+DRIVING_LOG = "/Users/JimWinquist/Desktop/data/driving_log.csv"
 #LEFT_DRIVING = "/Users/JimWinquist/Desktop/left_driving/driving_log.csv"
 #RIGHT_DRIVING = "/Users/JimWinquist/Desktop/right_driving/driving_log.csv"
 SPOT_TRAINING = "/Users/JimWinquist/Desktop/spot_training_after_bridge/driving_log.csv"
@@ -25,73 +25,79 @@ JSON_PATH = "model.json"
 WEIGHTS_PATH = "model.h5"
 
 def load_driving_data(driving_log):
+    '''
+    Load driving data into a pandas dataframe for further processing
+
+    :param driving_log: csv file containing raw driving data
+    :return: pandas dataframe of driving data
+    '''
     df = pd.read_csv(driving_log, header=None, names=['center_image', 'left_image',
                                                       'right_image', 'steering_angle',
                                                       'throttle', 'break', 'speed'])
     return df
 
 def get_model():
-    # Model based off of commaai architecture
-    # https://github.com/commaai/research/blob/master/train_steering_model.py
-    row, col, ch = 25, 80, 3  # camera dimensions
+    '''
+    Create keras model architecture for training driving behavior.
+
+    :return: model
+    '''
+    # Simplified model
+    row, col, ch = 16, 32, 3  # image dimensions
 
     model = Sequential()
     model.add(Lambda(lambda x: x/128. - 1.,
                      input_shape=(row, col, ch),
                      output_shape=(row, col, ch)))
-    model.add(Convolution2D(16, 8, 8, subsample=(4, 4), border_mode="same"))
-    model.add(BatchNormalization())
-    model.add(ELU())
-    model.add(Convolution2D(32, 5, 5, subsample=(2, 2), border_mode="same"))
-    model.add(BatchNormalization())
-    model.add(ELU())
-    model.add(Convolution2D(64, 5, 5, subsample=(2, 2), border_mode="same"))
-    model.add(BatchNormalization())
-    model.add(ELU())
-    model.add(Flatten())
+    model.add(Convolution2D(16, 3, 3, init='he_normal', activation='relu', border_mode="valid"))
+    model.add(MaxPooling2D(pool_size=(4, 4), strides=(4,4), border_mode='valid'))
     model.add(Dropout(.2))
-    model.add(ELU())
-    model.add(Dense(512))
-    model.add(BatchNormalization())
-    model.add(Dropout(.5))
-    model.add(ELU())
+    model.add(Flatten())
     model.add(Dense(1))
 
-    model.compile(optimizer="adam", loss="mse")
+    model.compile(Adam(lr=0.0001), "mse")
 
     return model
 
 def batch_generator(driving_data, batch_size=8):
+    '''
+    Generate batches of images to be passed to the model.
+
+    :param driving_data: pandas dataframe containing all of the driving data
+    :param batch_size: the number of images in each batch
+    :return: a batch of image(features) and steering angle(labels)
+    '''
     num_rows = driving_data.shape[0]
-    X_train = np.zeros((batch_size, 25, 80, 3))
+    # Initialize array with dimensions (batch_size, row, col, ch)
+    X_train = np.zeros((batch_size, 16, 32, 3))
     y_train = np.zeros(batch_size)
     index = None
     while True:
         for i in range(0, batch_size, 4):
             if index is None or index >= num_rows:
                 index = 0
+            # Add center camera image and steering label
             angle = driving_data.iloc[index].steering_angle
             X_train[i] = image_process.preprocess(driving_data['center_image'].iloc[index])
             y_train[i] = angle
+            # Add left camera image with +0.25 steering angle offset
             X_train[i+1] = image_process.preprocess(driving_data['left_image'].iloc[index])
-            if angle > 0:
-                y_train[i+1] = angle + 0.25
-            else:
-                y_train[i+1] = angle + 0.25
+            y_train[i+1] = angle + 0.25
+            # Add right camera image with -0.25 steering angle offset
             X_train[i+2] = image_process.preprocess(driving_data['right_image'].iloc[index])
-            if angle > 0:
-                y_train[i+2] = angle - 0.25
-            else:
-                y_train[i+2] = angle - 0.25
+            y_train[i+2] = angle - 0.25
+            # Add flipped center camera image with negated steering angle
             X_train[i+3] = cv2.flip(image_process.preprocess(driving_data['center_image'].iloc[index]), 1)
             y_train[i+3] = -1 * angle
             index += 1
         yield (X_train, y_train)
 
 def main():
+    angle_threshold = 0.001
     if os.path.exists(JSON_PATH):
-        train = load_driving_data(SPOT_TRAINING)
-        train = train[abs(train['steering_angle'])>0.01]
+        # Reload Model and Weights and train with new data and lower learning rate
+        train = load_driving_data(DRIVING_LOG)
+        train = train[abs(train['steering_angle']) > angle_threshold]
 
         with open(JSON_PATH, 'r') as jfile:
             model = model_from_json(json.load(jfile))
@@ -108,8 +114,8 @@ def main():
         # Load raw driving data
         print('Loading Data...')
         driving_data = load_driving_data(DRIVING_LOG)
+
         # Extract only steering angles above some threshold
-        angle_threshold = 0.01
         train = driving_data[abs(driving_data['steering_angle']) > angle_threshold]
 
         print('Building Model...')
